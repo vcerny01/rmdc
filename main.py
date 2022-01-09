@@ -17,8 +17,9 @@ LINK_PATTERN = re.compile("\[\[(.*?)\]\]")
 
 def parse_args():
     "Parse and return command line arguments"
-    parser = argparse.ArgumentParser(description="Share your markdown notes in context. Go to the folder with your notes and run this program")
+    parser = argparse.ArgumentParser(description="Share your markdown notes in context (with the notes they link to).")
     parser.add_argument("-f", "--file", type=str, help="Target filename", required=True)
+    parser.add_argument("-x", "--exclude", nargs='+', help="Filenames to exclude", default=[])
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
     parser.add_argument("-i", "--input-dir", type=str, help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
@@ -49,14 +50,18 @@ def copy_notes(notes, directory):
             return
     for item in notes:
         shutil.copy(item, directory)
+    print(notes)
     print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
 
 
 def main():
     args = parse_args()
+    print("Following filenames will be excluded: ")
+    for item in args.exclude:
+        print("- " + item)
     if (args.input_dir[len(args.input_dir) - 1] != '/'):
         args.input_dir += '/'
-    print("Starting with note:", args.file, "\n")
+    print("\nStarting with note:", args.file, "\n")
 
     final_files = [args.input_dir + args.file]
     target_files = final_files
@@ -68,13 +73,15 @@ def main():
             if new_targets == None:
                 final_files.remove(item)
                 continue
-            next_target_files = list(set(next_target_files + new_targets)) # joining targets and removing duplicate entries
-            next_target_files[:] = [x for x in next_target_files if x]
-        target_files =  [args.input_dir + x for x in next_target_files]
-        for item in target_files:
+            new_targets = [x for x in new_targets if x not in args.exclude] # removing targets if they are to be excluded
+            next_target_files = list(set(next_target_files + new_targets)) # joining targets for next iteration with newly found targets and removing duplicate entries
+        next_target_files = [args.input_dir + x for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
+        next_target_files = [x for x in next_target_files if x not in final_files] # removing targets for next iteration if they are already present in the final list
+        target_files =  next_target_files # Preparing for the next iteration
+        for item in target_files: # printing files found in this iteration
             print(item)
-        print("---")
-        final_files += target_files
+        print("---\n")
+        final_files = list(set(final_files + target_files)) # adding found files to the final list
     copy_notes(final_files, args.output_dir)
 
 
