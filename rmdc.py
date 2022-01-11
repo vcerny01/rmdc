@@ -50,7 +50,6 @@ def copy_notes(notes, directory):
             return
     for item in notes:
         shutil.copy(item, directory)
-    print(notes)
     print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
 
 
