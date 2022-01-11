@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 #
-# Name: roamshare
+# Name: rmdc
 # Author: Vít Černý
 # License: GPL v3
-# Description: Intelligent sharing exported markdown from Roam
 #
 # -*- coding: utf-8 -*-
 
@@ -17,7 +16,7 @@ LINK_PATTERN = re.compile("\[\[(.*?)\]\]")
 
 def parse_args():
     "Parse and return command line arguments"
-    parser = argparse.ArgumentParser(description="Share your markdown notes in context (with the notes they link to).")
+    parser = argparse.ArgumentParser(description="Share your markdown notes in context.")
     parser.add_argument("-f", "--file", type=str, help="Target filename", required=True)
     parser.add_argument("-x", "--exclude", nargs='+', help="Filenames to exclude", default=[])
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
