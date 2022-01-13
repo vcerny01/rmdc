@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument("-f", "--file", type=str, help="Target filename", required=True)
     parser.add_argument("-x", "--exclude", nargs='+', help="Filenames to exclude", default=[])
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
-    parser.add_argument("-i", "--input-dir", type=str, help="Path to input directory with your notes")
+    parser.add_argument("-i", "--input-dir", type=str, default=".", help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
     return parser.parse_args()
 
