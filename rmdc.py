@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
     parser.add_argument("-i", "--input-dir", type=str, default=".", help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
+    parser.add_argument("-w", "--weblinks", action="store_true", help="Convert wikilinks to simple weblinks")
     return parser.parse_args()
 
 
@@ -49,7 +50,20 @@ def copy_notes(notes, directory):
             return
     for item in notes:
         shutil.copy(item, directory)
-    print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
+        print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
+
+
+def urlize(name: str):
+    "Urlize a link (as Hugo does)"
+    return name.lower().replace(" ", "-")
+
+def linkify_for_web(content: str):
+    "Change wikilinks to simple web links for my website"
+    links = re.findall(LINK_PATTERN, content)
+    print(links)
+    for link in links:
+        content = content.replace(("[[" + link + "]]"), ("[" + link + "]" + urlize("(" + link + ")")))
+    return content
 
 
 def main():
@@ -57,11 +71,9 @@ def main():
     print("Following filenames will be excluded: ")
     for item in args.exclude:
         print("- " + item)
-    if (args.input_dir[len(args.input_dir) - 1] != '/'):
-        args.input_dir += '/'
     print("\nStarting with note:", args.file, "\n")
 
-    final_files = [args.input_dir + args.file]
+    final_files = [os.path.join(args.input_dir, args.file)]
     target_files = final_files
     for i in range(args.depth):
         next_target_files =  ["",]
@@ -80,7 +92,13 @@ def main():
             print(item)
         print("---\n")
         final_files = list(set(final_files + target_files)) # adding found files to the final list
+
     copy_notes(final_files, args.output_dir)
+    if args.weblinks == True:
+        for filename in final_files:
+            with open(os.path.join(args.output_dir, filename.replace(args.input_dir, "")), "r+") as file:
+                content = linkify_for_web(file.read())
+                file.write(content)
 
 
 if __name__ == "__main__":
