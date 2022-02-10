@@ -13,6 +13,7 @@ import os
 import shutil
 
 LINK_PATTERN = re.compile("\[\[(.*?)\]\]")
+ITALIC_PATTERN = re.compile("__(.*?)__")
 
 def parse_args():
     "Parse and return command line arguments"
@@ -22,11 +23,11 @@ def parse_args():
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
     parser.add_argument("-i", "--input-dir", type=str, default=".", help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
-    parser.add_argument("-w", "--weblinks", action="store_true", help="Convert wikilinks to simple weblinks")
+    parser.add_argument("-w", "--web", action="store_true", help="Convert wikilinks to simple weblinks and sanitize roam markdown")
     return parser.parse_args()
 
 
-def scan_file(filename, dir):
+def scan_file(filename):
     "Scan a markdown file and return filenames"
     try:
         file = open(filename)
@@ -50,19 +51,26 @@ def copy_notes(notes, directory):
             return
     for item in notes:
         shutil.copy(item, directory)
-        print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
+    print(str(len(notes)), "files successfully copied into directory '" + directory + "'")
 
 
 def urlize(name: str):
     "Urlize a link (as Hugo does)"
     return name.lower().replace(" ", "-")
 
-def linkify_for_web(content: str):
+def webify(content: str, existing_pages):
     "Change wikilinks to simple web links for my website"
     links = re.findall(LINK_PATTERN, content)
-    print(links)
     for link in links:
-        content = content.replace(("[[" + link + "]]"), ("[" + link + "]" + urlize("(" + link + ")")))
+        if link in existing_pages:
+            content = content.replace(("[[" + link + "]]"), ("[" + link + "]" + urlize("(" + link + ")")))
+        else:
+            print(link)
+            content = content.replace(("[[" + link + "]]"), link)
+    italics = re.findall(ITALIC_PATTERN, content)
+    for italic in italics:
+        full_italic = "__" + italic + "__"
+        content = content.replace(full_italic, "_" + italic + "_")
     return content
 
 
@@ -79,13 +87,13 @@ def main():
         next_target_files =  ["",]
         print("Wave", i + 1, ":\n---")
         for item in target_files:
-            new_targets = scan_file(item, args.input_dir)
+            new_targets = scan_file(item) # get new targets from text
             if new_targets == None:
                 final_files.remove(item)
                 continue
             new_targets = [x for x in new_targets if x not in args.exclude] # removing targets if they are to be excluded
             next_target_files = list(set(next_target_files + new_targets)) # joining targets for next iteration with newly found targets and removing duplicate entries
-        next_target_files = [args.input_dir + x for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
+        next_target_files = [os.path.join(args.input_dir, x) for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
         next_target_files = [x for x in next_target_files if x not in final_files] # removing targets for next iteration if they are already present in the final list
         target_files =  next_target_files # Preparing for the next iteration
         for item in target_files: # printing files found in this iteration
@@ -94,10 +102,12 @@ def main():
         final_files = list(set(final_files + target_files)) # adding found files to the final list
 
     copy_notes(final_files, args.output_dir)
-    if args.weblinks == True:
+    if args.web == True:
+        final_files = [os.path.basename(x) for x in final_files]
         for filename in final_files:
-            with open(os.path.join(args.output_dir, filename.replace(args.input_dir, "")), "r+") as file:
-                content = linkify_for_web(file.read())
+            with open(os.path.join(args.output_dir, filename), "r+") as file:
+                content = webify(file.read(), [x.replace(".md", "") for x in final_files])
+                file.seek(0)
                 file.write(content)
 
 
