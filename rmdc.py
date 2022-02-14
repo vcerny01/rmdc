@@ -14,6 +14,8 @@ import shutil
 
 LINK_PATTERN = re.compile("\[\[(.*?)\]\]")
 ITALIC_PATTERN = re.compile("__(.*?)__")
+HIGHLIGHT_PATTERN = re.compile("\^\^(.*?)\^\^")
+ALIAS_PATTERN = re.compile("\[(.*?)\]\(\[\[(.*?)\]\]\)")
 
 def parse_args():
     "Parse and return command line arguments"
@@ -23,7 +25,7 @@ def parse_args():
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
     parser.add_argument("-i", "--input-dir", type=str, default=".", help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
-    parser.add_argument("-w", "--web", action="store_true", help="Convert wikilinks to simple weblinks and sanitize roam markdown")
+    parser.add_argument("-w", "--web", type=str, help="Convert wikilinks to simple weblinks and sanitize roam markdown, argument is the notes directory")
     return parser.parse_args()
 
 
@@ -36,6 +38,7 @@ def scan_file(filename):
         return
     linked_notes = re.findall(LINK_PATTERN, file.read())
     return [x + ".md" for x in linked_notes]
+
 
 def copy_notes(notes, directory):
     "copy all selected notes to a directory"
@@ -58,25 +61,37 @@ def urlize(name: str):
     "Urlize a link (as Hugo does)"
     return name.lower().replace(" ", "-")
 
-def webify(content: str, existing_pages):
+
+def webify(content: str, existing_pages, web_dir):
     "Change wikilinks to simple web links for my website"
+    aliases = re.findall(ALIAS_PATTERN, content)
+    for alias in aliases:
+        full_alias =  "[" + alias[0] + "]" + "([[" + alias[1] + "]])"
+        if alias[1] in existing_pages:
+            content = content.replace(full_alias, full_alias.replace("[[" + alias[1] + "]]", urlize(os.path.join(web_dir, alias[1]))))
+        else:
+            content = content.replace(full_alias, alias[0])
     links = re.findall(LINK_PATTERN, content)
     for link in links:
+        full_link = "[[" + link + "]]"
         if link in existing_pages:
-            content = content.replace(("[[" + link + "]]"), ("[" + link + "]" + urlize("(" + link + ")")))
+            content = content.replace(full_link, ("[" + link + "]" + urlize("(" + os.path.join(web_dir, link) + ")")))
         else:
-            print(link)
             content = content.replace(("[[" + link + "]]"), link)
     italics = re.findall(ITALIC_PATTERN, content)
     for italic in italics:
         full_italic = "__" + italic + "__"
         content = content.replace(full_italic, "_" + italic + "_")
+    highlights = re.findall(HIGHLIGHT_PATTERN, content)
+    for highlight in highlights:
+        full_highlight = "^^" + highlight + "^^"
+        content = content.replace(full_highlight, "<mark>" + highlight + "</mark>")
     return content
 
 
 def main():
     args = parse_args()
-    print("Following filenames will be excluded: ")
+    print("Following notes will be excluded: ")
     for item in args.exclude:
         print("- " + item)
     print("\nStarting with note:", args.file, "\n")
@@ -88,10 +103,10 @@ def main():
         print("Wave", i + 1, ":\n---")
         for item in target_files:
             new_targets = scan_file(item) # get new targets from text
-            if new_targets == None:
+            if new_targets is None:
                 final_files.remove(item)
                 continue
-            new_targets = [x for x in new_targets if x not in args.exclude] # removing targets if they are to be excluded
+            new_targets = [x for x in new_targets if x.replace(".md", "") not in args.exclude] # removing targets if they are to be excluded
             next_target_files = list(set(next_target_files + new_targets)) # joining targets for next iteration with newly found targets and removing duplicate entries
         next_target_files = [os.path.join(args.input_dir, x) for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
         next_target_files = [x for x in next_target_files if x not in final_files] # removing targets for next iteration if they are already present in the final list
@@ -102,11 +117,11 @@ def main():
         final_files = list(set(final_files + target_files)) # adding found files to the final list
 
     copy_notes(final_files, args.output_dir)
-    if args.web == True:
+    if args.web:
         final_files = [os.path.basename(x) for x in final_files]
         for filename in final_files:
             with open(os.path.join(args.output_dir, filename), "r+") as file:
-                content = webify(file.read(), [x.replace(".md", "") for x in final_files])
+                content = webify(file.read(), [x.replace(".md", "") for x in final_files], args.web)
                 file.seek(0)
                 file.write(content)
 
