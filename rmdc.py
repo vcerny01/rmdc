@@ -108,10 +108,8 @@ def main():
                 final_files.remove(item)
                 continue
             new_targets = [x for x in new_targets if x not in args.exclude] # removing targets if they are to be excluded
-            print(new_targets)
             if args.empty:
                 new_targets = [x for x in new_targets if (os.stat(x).st_size != 0)] # Remove empty files
-            print(new_targets)
             next_target_files = list(set(next_target_files + new_targets)) # joining targets for next iteration with newly found targets and removing duplicate entries
         next_target_files = [os.path.join(args.input_dir, x) for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
         next_target_files = [x for x in next_target_files if x not in final_files] # removing targets for next iteration if they are already present in the final list
