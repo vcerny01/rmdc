@@ -21,11 +21,12 @@ def parse_args():
     "Parse and return command line arguments"
     parser = argparse.ArgumentParser(description="Share your markdown notes in context.")
     parser.add_argument("-f", "--file", type=str, help="Target filename", required=True)
-    parser.add_argument("-x", "--exclude", nargs='+', help="Filenames to exclude", default=[])
+    parser.add_argument("-x", "--exclude", nargs='+', help="FILENAMES to exclude", default=[])
     parser.add_argument("-d", "--depth", type=int, help="Depth of recursion", required=True)
     parser.add_argument("-i", "--input-dir", type=str, default=".", help="Path to input directory with your notes")
     parser.add_argument("-o", "--output-dir", type=str, help="Path to output directory", required=True)
     parser.add_argument("-w", "--web", type=str, help="Convert wikilinks to simple weblinks and sanitize roam markdown, argument is the notes directory")
+    parser.add_argument("-e", "--empty",action="store_true", help="Exclude empty notes")
     return parser.parse_args()
 
 
@@ -106,7 +107,11 @@ def main():
             if new_targets is None:
                 final_files.remove(item)
                 continue
-            new_targets = [x for x in new_targets if x.replace(".md", "") not in args.exclude] # removing targets if they are to be excluded
+            new_targets = [x for x in new_targets if x not in args.exclude] # removing targets if they are to be excluded
+            print(new_targets)
+            if args.empty:
+                new_targets = [x for x in new_targets if (os.stat(x).st_size != 0)] # Remove empty files
+            print(new_targets)
             next_target_files = list(set(next_target_files + new_targets)) # joining targets for next iteration with newly found targets and removing duplicate entries
         next_target_files = [os.path.join(args.input_dir, x) for x in next_target_files if x] # appending directory path to the beginning and removing empty entries
         next_target_files = [x for x in next_target_files if x not in final_files] # removing targets for next iteration if they are already present in the final list
